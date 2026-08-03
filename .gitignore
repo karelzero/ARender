@@ -43,6 +43,10 @@
 build/
 Build/
 build-*/
+out/
+
+# Visual Studio "Open Folder" local state
+.vs/
 
 # CMake generated files
 CMakeFiles/
