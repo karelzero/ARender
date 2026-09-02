@@ -2,20 +2,21 @@
 
 > **本计划不含任何实现代码（项目约定，见 CLAUDE.md）。** 代码由学习者亲手编写；卡顿时查阅指定资料或讨论思路。Steps 用 checkbox（`- [ ]`）跟踪进度。
 
-**Goal:** 搭出一个能画场景的 DX12 空壳框架（`framework/`），最终交付一个旋转纹理立方体，作为后续所有复刻项目的地基。
+**Goal:** 搭出一个能画场景的 DX12 最小渲染器，最终交付一个旋转纹理立方体，作为后续所有专题持续演进的地基。
 
-**Architecture（目标形态，自行实现）:** 单 CMake 项目、WIN32 可执行文件。建议拆成四个职责单一的组件：DXContext（设备/命令队列/swap chain/RTV/DSV/fence 与帧同步）、Mesh（顶点/索引缓冲与绘制）、Pipeline（shader 编译、root signature、PSO）、Texture2D（纹理创建与上传），由 main.cpp 驱动窗口和帧循环。
+**Architecture（目标形态，自行实现）:** 单 Visual Studio 2026 solution、单原生 C++ project、WIN32 可执行文件。建议拆成四个职责单一的组件：DXContext（设备/命令队列/swap chain/RTV/DSV/fence 与帧同步）、Mesh（顶点/索引缓冲与绘制）、Pipeline（shader 编译、root signature、PSO）、Texture2D（纹理创建与上传），由 main.cpp 驱动窗口和帧循环。
 
-**Tech Stack:** C++20、DirectX 12（Windows SDK 自带，含 DirectXMath）、HLSL 5.1（运行时用 `D3DCompileFromFile` 编译）、CMake + VS2022。
+**Tech Stack:** C++20、DirectX 12（Windows SDK 自带，含 DirectXMath）、HLSL 5.1（运行时用 `D3DCompileFromFile` 编译）、Visual Studio 2026。
 
 ## Global Constraints
 
 - 只用 DX12 最小集：swap chain/命令队列、PSO、root signature 与 descriptor、vertex/index buffer 与 upload heap、depth buffer、基本 barrier。**不要引入**：多队列、自定义内存分配器、bindless、DirectXTK、d3dx12.h、vcpkg 等外部依赖。
-- 环境：Windows + Visual Studio 2022（Desktop development with C++）+ Windows SDK + CMake ≥ 3.24。
+- 环境：Windows + Visual Studio 2026（Desktop development with C++）+ Windows SDK。
 - 验收统一两种方式：① 程序支持 `--smoke` 参数（跑 120 帧后自动退出、返回码 0）；② Debug 配置下 D3D12 debug layer 打开，调试输出无 ERROR。每个任务另附肉眼验收项。
-- 时间硬上限 2 周（约 15 小时）。单个问题卡住超过 2 小时：记录到笔记"待回头补"，继续推进或提出讨论。
-- 构建目录 `framework/build/`（.gitignore 已覆盖）；建议用 CMake POST_BUILD 把 shader 目录拷到 exe 旁边，验证时在 exe 目录运行：`(cd framework/build/Debug && ./framework.exe --smoke)`。
-- 每完成一个任务就 commit 一次。
+- 目标周期 2 周（约 15 小时），两周时必须复盘；15 小时是估算，不是失败标准。单个非核心问题卡住超过 2 小时：记录到笔记"待回头补"，继续推进或提出讨论。fence、barrier、资源生命周期等核心概念未理解时，先补清楚再进入阶段 1。
+- 主工程在后续阶段持续演进，不复制工程。每完成一个任务 commit 一次；阶段完成后打 tag `stage-0-dx12-minimal`。
+- Visual Studio 的输出目录统一设置为 `bin/$(Platform)/$(Configuration)/`，中间目录设置为 `build/$(Platform)/$(Configuration)/`；两者均不提交 Git。
+- shader 从 Task 3 起通过项目的 Post-Build Event 复制到 exe 旁边；调试器 Working Directory 设为 `$(TargetDir)`，保证命令行运行和 F5 调试使用相同资源路径。
 
 ## 通用参考资料（整阶段有效，各任务再标注重点）
 
@@ -25,28 +26,17 @@
 
 ---
 
-### Task 1: CMake 脚手架 + Win32 窗口 + 冒烟模式
+### Task 1: VS2026 工程 + Win32 窗口 + 冒烟模式
 
 **目标：** 能构建出一个显示空白窗口的 exe，支持 `--smoke` 参数自动退出。
 
-- [ ] **Step 1:** 创建 `framework/CMakeLists.txt`：C++20、WIN32 可执行文件、链接 d3d12/dxgi/d3dcompiler/dxguid。
-- [ ] **Step 2:** 创建 `framework/src/main.cpp`：注册窗口类、创建 1280x720 窗口、PeekMessage 消息循环；解析命令行，含 `--smoke` 时跑满 120 次循环迭代后 `PostQuitMessage`；返回值 0 表示成功。
-- [ ] **Step 3:** 构建验证
-
-Run:
-```bash
-cmake -S framework -B framework/build -G "Visual Studio 17 2022" -A x64
-cmake --build framework/build --config Debug
-```
-Expected: 编译链接 0 error。
-
-- [ ] **Step 4:** 冒烟验证
-
-Run: `(cd framework/build/Debug && ./framework.exe --smoke); echo $?`
-Expected: 窗口闪现后自动关闭，输出 `0`。
-
-- [ ] **Step 5:** 肉眼验收：不带参数运行，出现空白窗口且可正常关闭。
-- [ ] **Step 6:** Commit（`Stage0/Task1: CMake scaffold + Win32 window with smoke mode`）
+- [ ] **Step 1:** 在仓库根目录创建 `ARender.sln`，添加名为 `ARender` 的 C++ Empty Project，项目文件放在 `renderer/`。只保留或启用 x64 平台，后续不再为各阶段创建工程副本。
+- [ ] **Step 2:** 在项目属性中统一配置 Debug/Release：C++20、Unicode、Windows 子系统、输出目录、中间目录；链接 `d3d12.lib`、`dxgi.lib`、`d3dcompiler.lib`、`dxguid.lib`。确认 `ARender` 是启动项目。
+- [ ] **Step 3:** 创建 `renderer/src/main.cpp` 并通过 Visual Studio 加入项目：注册窗口类、创建 1280x720 窗口、使用 PeekMessage 消息循环；解析命令行，含 `--smoke` 时在 120 次无消息循环更新后退出；返回值 0 表示成功。
+- [ ] **Step 4:** 在 Visual Studio 中选择 `Debug | x64`，执行 Build Solution。Expected：编译链接 0 error，目标文件生成在约定的 `bin/x64/Debug/`。
+- [ ] **Step 5:** 在 exe 输出目录运行 `ARender.exe --smoke` 并检查退出码。Expected：窗口闪现后自动关闭，退出码为 0。
+- [ ] **Step 6:** 不带参数按 F5 调试。Expected：出现空白窗口且可正常关闭；断点、调用栈和变量查看正常。
+- [ ] **Step 7:** Commit（`Stage0/Task1: VS2026 project + Win32 window with smoke mode`）
 
 ---
 
@@ -67,7 +57,7 @@ Expected: 窗口闪现后自动关闭，输出 `0`。
 - [ ] **Step 1:** 阅读 `D3D12HelloWindow` 示例源码，用自己的话在纸上画出对象创建顺序图。
 - [ ] **Step 2:** 实现 dx_util.h 与 dx_context.h/.cpp。
 - [ ] **Step 3:** main.cpp 接入 DXContext，帧循环改为清屏 + Present。
-- [ ] **Step 4:** 构建 + 冒烟验证：`(cd framework/build/Debug && ./framework.exe --smoke); echo $?` → 输出 `0`，调试输出无 D3D12 ERROR（有 ERROR 优先修，多半是 barrier 或同步问题）。
+- [ ] **Step 4:** 在 Visual Studio 中构建并运行 `--smoke`；从本任务起按完成 Present 的帧数计数，120 帧后退出码为 0。检查 VS 调试输出无 D3D12 ERROR（有 ERROR 优先修，多半是 barrier 或同步问题）。
 - [ ] **Step 5:** 肉眼验收：窗口稳定深蓝色（如 0.1/0.2/0.4），无闪烁。
 - [ ] **Step 6:** Commit（`Stage0/Task2: DXContext with device/swapchain/RTV/fence, clear to blue`）
 
@@ -82,7 +72,7 @@ Expected: 窗口闪现后自动关闭，输出 `0`。
 - 新建 `pipeline.h/.cpp`：运行时编译 `shaders/cube.hlsl`（VSMain/PSMain，vs_5_1/ps_5_1，编译错误输出到调试窗口）；本任务 root signature 为空参数；创建 PSO（手写填各状态结构，cull 先关掉避免绕序问题）。
 - 新建 `shaders/cube.hlsl`：顶点色直出。
 - main.cpp：创建三角形 mesh，帧循环中 Bind pipeline 后 Draw。
-- CMakeLists 增加源文件 + shader 目录 POST_BUILD 拷贝。
+- 新增源文件通过 Visual Studio 加入现有 `ARender` project；配置 Post-Build Event，把 shader 目录复制到 `$(TargetDir)/shaders/`。
 
 **重点阅读：**
 - 官方示例 `D3D12HelloTriangle`。
@@ -92,7 +82,7 @@ Expected: 窗口闪现后自动关闭，输出 `0`。
 - [ ] **Step 1:** 阅读 `D3D12HelloTriangle`，对照 Task 2 的 HelloWindow 找出"多了哪些对象"。
 - [ ] **Step 2:** 实现 mesh.h/.cpp。
 - [ ] **Step 3:** 实现 pipeline.h/.cpp 与 cube.hlsl。
-- [ ] **Step 4:** 更新 CMakeLists 与 main.cpp。
+- [ ] **Step 4:** 将新增源文件和 shader 加入现有 VS project，配置 shader 构建后复制，并更新 main.cpp。
 - [ ] **Step 5:** 构建 + 冒烟验证 → 退出码 0，无 D3D12 ERROR。
 - [ ] **Step 6:** 肉眼验收：深蓝背景中央 RGB 渐变三角形。
 - [ ] **Step 7:** Commit（`Stage0/Task3: shader+root signature+PSO+vertex buffer, colored triangle`）
@@ -156,17 +146,18 @@ Expected: 窗口闪现后自动关闭，输出 `0`。
 
 **目标：** 把本阶段沉淀成可复习的资产，并把路线图落到仓库里。
 
-- [ ] **Step 1:** 创建 `docs/roadmap.md`：阶段 0~6 表格（主题/计划时长/状态/实际耗时/笔记链接），阶段 0 打勾；注明调整原则（每阶段回顾后可重排后续）。
+- [ ] **Step 1:** 创建 `docs/roadmap.md`：阶段 0、1、2、3、4、5A、5B、6 表格（主题/计划时长/状态/实际耗时/笔记链接），阶段 0 打勾；注明调整原则（每阶段回顾后可重排后续）。
 - [ ] **Step 2:** 创建 `docs/notes/01-dx12-minimal.md` 并**认真填写**（这是阶段验收的一部分）：
   - 核心概念（用自己的话）：swap chain/命令队列/命令列表/allocator、PSO 为什么存在、root signature 与 descriptor、upload vs default heap、barrier 为什么存在、fence 与双缓冲同步
   - 踩坑记录：实际遇到的问题和解法
   - 待回头补：多队列、内存分配器、bindless 等留到用到再学
-- [ ] **Step 3:** Commit（`Stage0/Task6: roadmap + stage-0 notes`）
+- [ ] **Step 3:** Commit（`Stage0/Task6: roadmap + stage-0 notes`），随后创建 tag `stage-0-dx12-minimal`。
 
 ---
 
 ## 完成标准（对照 spec 阶段 0）
 
-1. `framework/` 可一键构建，`--smoke` 退出码 0，肉眼看到旋转纹理立方体。
+1. `ARender.sln` 可在 Visual Studio 2026 中以 `Debug | x64` 一键构建和 F5 调试，`--smoke` 退出码 0，肉眼看到旋转纹理立方体。
 2. 六样最小集全部亲手实现且只用了这些：swap chain/命令队列、PSO、root signature 与 descriptor、vertex/index buffer 与 upload heap、depth buffer、基本 barrier。
-3. `docs/roadmap.md` 就位，阶段 0 笔记填写完成。
+3. shader 在 F5 调试和从输出目录直接启动时都能稳定找到；Debug Layer 无 ERROR。
+4. `docs/roadmap.md` 与阶段 0 笔记填写完成，Git tag `stage-0-dx12-minimal` 可还原本阶段成果。
