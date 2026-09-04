@@ -148,11 +148,15 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\DXWindow.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\pch.cpp" />
+    <ClCompile Include="src\WinApp.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\DXWindow.h" />
     <ClInclude Include="src\pch.h" />
+    <ClInclude Include="src\WinApp.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
