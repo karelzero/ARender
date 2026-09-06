@@ -1,5 +1,7 @@
 #pragma once
 
+using Microsoft::WRL::ComPtr;
+
 class DXWindow
 {
 public:
@@ -18,6 +20,9 @@ public:
 	void OnDestroy();
 
 private:
+	void LoadPipeline();
+	void LoadAssets();
+
 	// Window properties
 	std::wstring strTitle;
 	UINT nWidth;
@@ -27,18 +32,23 @@ private:
 	// DirectX properties
 	static const UINT FrameCount = 2;
 
-	ID3D12Device* pDevice = nullptr;
-	IDXGISwapChain3* pSwapChain = nullptr;
-	ID3D12Resource* pRenderTargets[FrameCount] = {};
-	ID3D12CommandAllocator* pCommandAllocator = nullptr;
-	ID3D12CommandQueue* pCommandQueue = nullptr;
-	ID3D12DescriptorHeap* pRtvHeap = nullptr;
-	ID3D12PipelineState* pPipelineState = nullptr;
-	ID3D12GraphicsCommandList* pCommandList = nullptr;
+	ComPtr<ID3D12Device> pDevice;
+	ComPtr<IDXGISwapChain3> pSwapChain;
+	ComPtr<ID3D12Resource> pRenderTargets[FrameCount];
+	ComPtr<ID3D12CommandAllocator> pCommandAllocator;
+	ComPtr<ID3D12CommandQueue> pCommandQueue;
+	ComPtr<ID3D12DescriptorHeap> pRtvHeap;
+	ComPtr<ID3D12PipelineState> pPipelineState;
+	ComPtr<ID3D12GraphicsCommandList> pCommandList;
 	UINT nRtvDescriptorSize = 0;
+
+#ifdef _DEBUG
+	ComPtr<ID3D12Debug6> pDxDebuger;
+	ComPtr<IDXGIDebug1> pDxgiDebuger;
+#endif
 
 	UINT nFrameIndex = 0;
 	HANDLE hFenceEvent = nullptr;
-	ID3D12Fence* pFence = nullptr;
+	ComPtr<ID3D12Fence> pFence;
 	UINT64 nFenceValue = 0;
 };

@@ -48,6 +48,9 @@ int WinApp::Run(DXWindow* pWindow, HINSTANCE hInstance, int nCmdShow)
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}
+
+		pWindow->OnUpdate();
+		pWindow->OnRender();
 	}
 
 	// Cleanup
@@ -73,14 +76,6 @@ LRESULT WinApp::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		case WM_DESTROY:
 		{
 			PostQuitMessage(0);
-			return 0;
-		}
-		case WM_PAINT:
-		{
-			// Handle painting here
-			pWindow->OnUpdate();
-			pWindow->OnRender();
-
 			return 0;
 		}
 		default:
