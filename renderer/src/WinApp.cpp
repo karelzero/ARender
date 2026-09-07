@@ -5,13 +5,41 @@
 
 HWND WinApp::mHwnd;
 
-int WinApp::Run(DXWindow* pWindow, HINSTANCE hInstance, int nCmdShow)
+int WinApp::Run(HINSTANCE hInstance, LPWSTR lpCmdLine, int nCmdShow)
 {
 	int argc;
-	LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
-	pWindow->ParseCommandLineArgs(argc, argv);
+	LPWSTR* argv = CommandLineToArgvW(lpCmdLine, &argc);
+
+	DXWindow dxWindow(L"ARender", 1280, 720);
+	dxWindow.ParseCommandLineArgs(argc, argv);
 	LocalFree(argv);
 
+	// Window must be created before DirectX initialization because the swap chain needs a window handle.
+	Create(&dxWindow, hInstance, nCmdShow);
+	dxWindow.OnInit();
+
+	// Main message loop
+	MSG msg = {};
+	UINT64 nFrameCount = 0;
+	while (msg.message != WM_QUIT)
+	{
+		if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+		{
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}
+
+		dxWindow.OnRun(nFrameCount++);
+	}
+
+	// Cleanup
+	dxWindow.OnDestroy();
+
+	return static_cast<char>(0);
+}
+
+void WinApp::Create(DXWindow* pWindow, HINSTANCE hInstance, int nCmdShow)
+{
 	// Init window class
 	WNDCLASSEX windClass = {};
 	windClass.cbSize = sizeof(WNDCLASSEX);
@@ -36,32 +64,12 @@ int WinApp::Run(DXWindow* pWindow, HINSTANCE hInstance, int nCmdShow)
 		nullptr, nullptr, hInstance, pWindow);
 
 	// Show window
-	pWindow->OnInit();
 	ShowWindow(mHwnd, nCmdShow);
-
-	// Main message loop
-	MSG msg = {};
-	while (msg.message != WM_QUIT)
-	{
-		if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
-		{
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
-		}
-
-		pWindow->OnUpdate();
-		pWindow->OnRender();
-	}
-
-	// Cleanup
-	pWindow->OnDestroy();
-
-	return static_cast<char>(0);
 }
 
 LRESULT WinApp::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-	DXWindow* pWindow = reinterpret_cast<DXWindow*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
+	DXWindow* dxWindow = reinterpret_cast<DXWindow*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
 
 	switch (msg)
 	{

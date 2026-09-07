@@ -15,19 +15,26 @@ public:
 	void ParseCommandLineArgs(int argc, WCHAR** argv);
 
 	void OnInit();
-	void OnUpdate();
-	void OnRender();
+	void OnRun(UINT64 nFrameCount);
 	void OnDestroy();
 
+	inline bool IsExit() const { return bExit; }
+
 private:
+	void OnUpdate();
+	void OnRender();
+
 	void LoadPipeline();
 	void LoadAssets();
+
+	void WaitForPreviousFrame();
 
 	// Window properties
 	std::wstring strTitle;
 	UINT nWidth;
 	UINT nHeight;
 	float fAspectRatio;
+	bool bExit = false;
 
 	// DirectX properties
 	static const UINT FrameCount = 2;
