@@ -86,6 +86,16 @@ LRESULT WinApp::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			PostQuitMessage(0);
 			return 0;
 		}
+		case WM_SIZE:
+		{
+			if (dxWindow)
+			{
+				UINT width = LOWORD(lParam);
+				UINT height = HIWORD(lParam);
+				dxWindow->OnResize(width, height);
+			}
+			return 0;
+		}
 		default:
 			break;
 	}

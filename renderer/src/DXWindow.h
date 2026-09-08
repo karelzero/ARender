@@ -17,6 +17,7 @@ public:
 	void OnInit();
 	void OnRun(UINT64 nFrameCount);
 	void OnDestroy();
+	void OnResize(UINT width, UINT height);
 
 	inline bool IsExit() const { return bExit; }
 

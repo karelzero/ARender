@@ -74,6 +74,40 @@ void DXWindow::OnDestroy()
 #endif
 }
 
+void DXWindow::OnResize(UINT width, UINT height)
+{
+	if (width == 0 || height == 0)
+	{
+		return;
+	}
+
+	if(nWidth != width || nHeight != height)
+	{
+		nWidth = width;
+		nHeight = height;
+		fAspectRatio = static_cast<float>(width) / static_cast<float>(height);
+
+		WaitForPreviousFrame();
+		for (UINT i = 0; i < FrameCount; ++i)
+		{
+			pRenderTargets[i].Reset();
+		}
+
+		DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
+		ThrowIfFailed(pSwapChain->GetDesc(&swapChainDesc));
+		ThrowIfFailed(pSwapChain->ResizeBuffers(FrameCount, nWidth, nHeight, swapChainDesc.BufferDesc.Format, swapChainDesc.Flags));
+		nFrameIndex = pSwapChain->GetCurrentBackBufferIndex();
+
+		D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle(pRtvHeap->GetCPUDescriptorHandleForHeapStart());
+		for (UINT i = 0; i < FrameCount; ++i)
+		{
+			ThrowIfFailed(pSwapChain->GetBuffer(i, IID_PPV_ARGS(&pRenderTargets[i])));
+			pDevice->CreateRenderTargetView(pRenderTargets[i].Get(), nullptr, rtvHandle);
+			rtvHandle.ptr += nRtvDescriptorSize;
+		}
+	}
+}
+
 void DXWindow::OnUpdate()
 {
 }
