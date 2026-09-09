@@ -28,6 +28,10 @@ private:
 	void LoadPipeline();
 	void LoadAssets();
 
+	void CreateBuffers();
+	void ReleaseBuffers();
+
+	void PopulateCommandList();
 	void WaitForPreviousFrame();
 
 	// Window properties

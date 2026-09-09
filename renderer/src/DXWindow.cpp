@@ -53,6 +53,8 @@ void DXWindow::OnDestroy()
 {
 	WaitForPreviousFrame();
 
+	ReleaseBuffers();
+
 	pCommandQueue.Reset();
 	pRtvHeap.Reset();
 	pCommandAllocator.Reset();
@@ -88,23 +90,14 @@ void DXWindow::OnResize(UINT width, UINT height)
 		fAspectRatio = static_cast<float>(width) / static_cast<float>(height);
 
 		WaitForPreviousFrame();
-		for (UINT i = 0; i < FrameCount; ++i)
-		{
-			pRenderTargets[i].Reset();
-		}
+		ReleaseBuffers();
 
 		DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
 		ThrowIfFailed(pSwapChain->GetDesc(&swapChainDesc));
 		ThrowIfFailed(pSwapChain->ResizeBuffers(FrameCount, nWidth, nHeight, swapChainDesc.BufferDesc.Format, swapChainDesc.Flags));
 		nFrameIndex = pSwapChain->GetCurrentBackBufferIndex();
 
-		D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle(pRtvHeap->GetCPUDescriptorHandleForHeapStart());
-		for (UINT i = 0; i < FrameCount; ++i)
-		{
-			ThrowIfFailed(pSwapChain->GetBuffer(i, IID_PPV_ARGS(&pRenderTargets[i])));
-			pDevice->CreateRenderTargetView(pRenderTargets[i].Get(), nullptr, rtvHandle);
-			rtvHandle.ptr += nRtvDescriptorSize;
-		}
+		CreateBuffers();
 	}
 }
 
@@ -114,6 +107,11 @@ void DXWindow::OnUpdate()
 
 void DXWindow::OnRender()
 {
+	PopulateCommandList();
+
+	ID3D12CommandList* ppCommandLists[] = { pCommandList.Get() };
+	pCommandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
+
 	ThrowIfFailed(pSwapChain->Present(1, 0));
 	WaitForPreviousFrame();
 }
@@ -165,6 +163,7 @@ void DXWindow::LoadPipeline()
 	nRtvDescriptorSize = pDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
 	// Create frame resources.
+	CreateBuffers();
 
 	ThrowIfFailed(pDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&pCommandAllocator)));
 }
@@ -184,6 +183,54 @@ void DXWindow::LoadAssets()
 	{
 		ThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
 	}
+}
+
+void DXWindow::CreateBuffers()
+{
+	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle(pRtvHeap->GetCPUDescriptorHandleForHeapStart());
+
+	for (UINT i = 0; i < FrameCount; ++i)
+	{
+		ThrowIfFailed(pSwapChain->GetBuffer(i, IID_PPV_ARGS(&pRenderTargets[i])));
+		pDevice->CreateRenderTargetView(pRenderTargets[i].Get(), nullptr, rtvHandle);
+		rtvHandle.ptr += UINT64(nRtvDescriptorSize);
+	}
+}
+
+void DXWindow::ReleaseBuffers()
+{
+	for (UINT i = 0; i < FrameCount; ++i)
+	{
+		pRenderTargets[i].Reset();
+	}
+}
+
+void DXWindow::PopulateCommandList()
+{
+	ThrowIfFailed(pCommandAllocator->Reset());
+	ThrowIfFailed(pCommandList->Reset(pCommandAllocator.Get(), pPipelineState.Get()));
+
+	D3D12_RESOURCE_BARRIER barrier = {};
+	barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+	barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+	barrier.Transition.pResource = pRenderTargets[nFrameIndex].Get();
+	barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+	barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+
+	pCommandList->ResourceBarrier(1, &barrier);
+
+	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle(pRtvHeap->GetCPUDescriptorHandleForHeapStart());
+	rtvHandle.ptr += INT64(nFrameIndex) * INT64(nRtvDescriptorSize);
+
+	const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
+	pCommandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
+
+	barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+	barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+
+	pCommandList->ResourceBarrier(1, &barrier);
+
+	ThrowIfFailed(pCommandList->Close());
 }
 
 void DXWindow::WaitForPreviousFrame()
